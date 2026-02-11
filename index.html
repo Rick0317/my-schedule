@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS // Task Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #00f0ff;
+    --cyan-dim: #00f0ff40;
+    --cyan-glow: #00f0ff18;
+    --magenta: #ff2d9b;
+    --magenta-dim: #ff2d9b50;
+    --yellow: #f0e040;
+    --yellow-dim: #f0e04040;
+    --green: #00ff88;
+    --green-dim: #00ff8840;
+    --bg-deep: #07080e;
+    --bg-panel: #0c0e18;
+    --bg-card: #10132080;
+    --border: #1a1e35;
+    --text: #c8cde0;
+    --text-dim: #5a6080;
+    --scanline: rgba(0, 240, 255, 0.015);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      var(--scanline) 2px,
+      var(--scanline) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Grid background */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(90deg, #0f132008 1px, transparent 1px),
+      linear-gradient(#0f132008 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 32px 40px 60px;
+  }
+
+  /* ═══ HEADER ═══ */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    animation: fadeSlideDown 0.8s ease-out;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 200px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+  }
+
+  .header-left {}
+  .header-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.7;
+  }
+  .header-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 38px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #fff 0%, var(--cyan) 60%, var(--magenta) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .header-date {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-align: right;
+    line-height: 1.7;
+  }
+  .header-date span {
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .status-orb {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, var(--green), #004422);
+    box-shadow: 0 0 20px var(--green-dim), inset 0 0 10px rgba(0,255,136,0.3);
+    animation: pulse 2s ease-in-out infinite;
+    position: relative;
+  }
+  .status-orb::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1px solid var(--green-dim);
+    animation: pulse 2s ease-in-out infinite reverse;
+  }
+
+  /* ═══ STATS BAR ═══ */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+    animation: fadeSlideUp 0.7s ease-out 0.1s both;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .stat-card:hover {
+    border-color: var(--cyan-dim);
+    box-shadow: 0 0 30px rgba(0,240,255,0.05);
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+  .stat-card:nth-child(1)::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+  .stat-card:nth-child(2)::before { background: linear-gradient(90deg, var(--magenta), transparent); }
+  .stat-card:nth-child(3)::before { background: linear-gradient(90deg, var(--yellow), transparent); }
+  .stat-card:nth-child(4)::before { background: linear-gradient(90deg, var(--green), transparent); }
+
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .stat-card:nth-child(1) .stat-value { color: var(--cyan); }
+  .stat-card:nth-child(2) .stat-value { color: var(--magenta); }
+  .stat-card:nth-child(3) .stat-value { color: var(--yellow); }
+  .stat-card:nth-child(4) .stat-value { color: var(--green); }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ═══ MAIN GRID ═══ */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+  }
+
+  /* ═══ SECTION TITLES ═══ */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .section-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+  .section-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    background: var(--cyan-glow);
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--cyan-dim);
+  }
+
+  /* ═══ TASK LIST ═══ */
+  .task-panel {
+    animation: fadeSlideUp 0.7s ease-out 0.2s both;
+  }
+  .task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .task-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+  }
+  .task-item:hover {
+    border-color: var(--cyan-dim);
+    background: #12153080;
+    transform: translateX(4px);
+  }
+  .task-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+  }
+  .task-item.priority-critical::before { background: var(--magenta); box-shadow: 0 0 12px var(--magenta-dim); }
+  .task-item.priority-high::before { background: var(--yellow); box-shadow: 0 0 12px var(--yellow-dim); }
+  .task-item.priority-normal::before { background: var(--cyan); box-shadow: 0 0 12px var(--cyan-dim); }
+  .task-item.priority-low::before { background: var(--green); box-shadow: 0 0 12px var(--green-dim); }
+
+  .task-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: 1.5px solid var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+  .task-item:hover .task-check { border-color: var(--cyan); }
+  .task-item.done .task-check {
+    background: var(--cyan);
+    border-color: var(--cyan);
+  }
+  .task-item.done .task-check::after {
+    content: '✓';
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bg-deep);
+  }
+  .task-item.done .task-name { opacity: 0.35; text-decoration: line-through; }
+
+  .task-info {}
+  .task-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e0e4f0;
+    margin-bottom: 3px;
+    transition: opacity 0.3s;
+  }
+  .task-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .task-meta-item {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .task-priority {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .priority-critical .task-priority { color: var(--magenta); background: rgba(255,45,155,0.1); border: 1px solid var(--magenta-dim); }
+  .priority-high .task-priority { color: var(--yellow); background: rgba(240,224,64,0.08); border: 1px solid var(--yellow-dim); }
+  .priority-normal .task-priority { color: var(--cyan); background: var(--cyan-glow); border: 1px solid var(--cyan-dim); }
+  .priority-low .task-priority { color: var(--green); background: rgba(0,255,136,0.08); border: 1px solid var(--green-dim); }
+
+  /* ═══ RIGHT SIDEBAR ═══ */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    animation: fadeSlideUp 0.7s ease-out 0.3s both;
+  }
+
+  /* ═══ TIMELINE / SCHEDULE ═══ */
+  .schedule-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+    backdrop-filter: blur(10px);
+  }
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 12px;
+    bottom: 12px;
+    width: 1px;
+    background: linear-gradient(180deg, var(--cyan-dim), var(--border), transparent);
+  }
+  .time-slot {
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 16px;
+    padding: 10px 0;
+    position: relative;
+  }
+  .time-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    border: 2px solid var(--border);
+    margin-top: 2px;
+    z-index: 1;
+    transition: all 0.3s;
+  }
+  .time-slot.active .time-dot {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan-dim);
+  }
+  .time-slot.active .time-dot::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: -2px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 1px solid var(--cyan-dim);
+    animation: ping 1.5s ease-out infinite;
+  }
+  .time-content {}
+  .time-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .time-event {
+    font-size: 14px;
+    font-weight: 600;
+    color: #d0d4e8;
+  }
+  .time-event-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .time-slot.active .time-event { color: var(--cyan); }
+
+  /* ═══ PROGRESS RING ═══ */
+  .progress-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+  }
+  .ring-container {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin: 10px auto 16px;
+  }
+  .ring-svg {
+    transform: rotate(-90deg);
+    width: 160px;
+    height: 160px;
+  }
+  .ring-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 6;
+  }
+  .ring-fill {
+    fill: none;
+    stroke: url(#ring-gradient);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 408;
+    stroke-dashoffset: 408;
+    animation: ringFill 1.5s ease-out 0.5s forwards;
+    filter: drop-shadow(0 0 8px var(--cyan-dim));
+  }
+  .ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .ring-percent {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 2px;
+  }
+  .ring-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* ═══ PROJECT TAGS ═══ */
+  .tags-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+    backdrop-filter: blur(10px);
+  }
+  .tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border-radius: 5px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .tag:hover { transform: translateY(-1px); }
+  .tag.t-cyan { color: var(--cyan); border-color: var(--cyan-dim); background: var(--cyan-glow); }
+  .tag.t-magenta { color: var(--magenta); border-color: var(--magenta-dim); background: rgba(255,45,155,0.06); }
+  .tag.t-yellow { color: var(--yellow); border-color: var(--yellow-dim); background: rgba(240,224,64,0.06); }
+  .tag.t-green { color: var(--green); border-color: var(--green-dim); background: rgba(0,255,136,0.06); }
+  .tag.t-cyan:hover { box-shadow: 0 0 16px var(--cyan-glow); }
+  .tag.t-magenta:hover { box-shadow: 0 0 16px rgba(255,45,155,0.15); }
+
+  /* ═══ DECORATIVE CORNER BRACKETS ═══ */
+  .corner-deco {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0.15;
+  }
+  .corner-deco.tl { top: 16px; left: 16px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+  .corner-deco.tr { top: 16px; right: 16px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+  .corner-deco.bl { bottom: 16px; left: 16px; border-bottom: 2px solid var(--magenta); border-left: 2px solid var(--magenta); }
+  .corner-deco.br { bottom: 16px; right: 16px; border-bottom: 2px solid var(--magenta); border-right: 2px solid var(--magenta); }
+
+  /* ═══ AMBIENT GLOWS ═══ */
+  .glow-1 {
+    position: fixed;
+    top: -200px;
+    left: -100px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,240,255,0.04), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-2 {
+    position: fixed;
+    bottom: -200px;
+    right: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255,45,155,0.03), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ═══ ANIMATIONS ═══ */
+  @keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(0.95); }
+  }
+  @keyframes ping {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+  @keyframes ringFill {
+    to { stroke-dashoffset: 122; }  /* 70% filled: 408 - 408*0.70 = 122.4 */
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.6; }
+    94% { opacity: 1; }
+    97% { opacity: 0.8; }
+    98% { opacity: 1; }
+  }
+
+  .flicker { animation: flicker 4s ease-in-out infinite; }
+
+  /* ═══ TASK CATEGORY SEPARATOR ═══ */
+  .task-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0 6px;
+  }
+  .task-divider span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .task-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ═══ CANVAS BACKGROUND ═══ */
+  .hex-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.3;
+  }
+
+  /* ═══ RESPONSIVE ═══ */
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .header-title { font-size: 26px; }
+    .app { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="corner-deco tl"></div>
+<div class="corner-deco tr"></div>
+<div class="corner-deco bl"></div>
+<div class="corner-deco br"></div>
+<div class="glow-1"></div>
+<div class="glow-2"></div>
+
+<canvas class="hex-canvas" id="hexCanvas"></canvas>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-tag flicker">◆ SYS.NEXUS // TASK PROTOCOL v4.2</div>
+      <h1 class="header-title">MY SCHEDULE</h1>
+    </div>
+    <div class="header-right">
+      <div class="header-date">
+        <span id="liveDate">2026.02.10</span><br>
+        <span id="liveTime">14:32:08</span> EST<br>
+        CYCLE 041 — ACTIVE
+      </div>
+      <div class="status-orb" title="System Online"></div>
+    </div>
+  </header>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-label">Active Tasks</div>
+      <div class="stat-value">12</div>
+      <div class="stat-sub">+3 from yesterday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Critical</div>
+      <div class="stat-value">03</div>
+      <div class="stat-sub">Due within 24h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">In Progress</div>
+      <div class="stat-value">05</div>
+      <div class="stat-sub">Across 3 projects</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Completed</div>
+      <div class="stat-value">28</div>
+      <div class="stat-sub">This cycle</div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-grid">
+
+    <!-- LEFT: TASKS -->
+    <div class="task-panel">
+      <div class="section-header">
+        <div class="section-title">Task Queue</div>
+        <div class="section-line"></div>
+        <div class="section-count">12 ACTIVE</div>
+      </div>
+
+      <div class="task-divider"><span>▸ Critical Priority</span></div>
+
+      <div class="task-list">
+        <div class="task-item priority-critical" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Deploy authentication microservice to prod</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Today 18:00</span>
+              <span class="task-meta-item">Proj: Nexus Core</span>
+            </div>
+          </div>
+          <div class="task-priority">Critical</div>
+        </div>
+        <div class="task-item priority-critical" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Fix memory leak in data processing pipeline</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Today 20:00</span>
+              <span class="task-meta-item">Proj: Infra</span>
+            </div>
+          </div>
+          <div class="task-priority">Critical</div>
+        </div>
+      </div>
+
+      <div class="task-divider"><span>▸ High Priority</span></div>
+
+      <div class="task-list">
+        <div class="task-item priority-high" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Review Q1 growth metrics dashboard</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Tomorrow</span>
+              <span class="task-meta-item">Proj: Analytics</span>
+            </div>
+          </div>
+          <div class="task-priority">High</div>
+        </div>
+        <div class="task-item priority-high" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Prepare technical architecture proposal</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Tomorrow</span>
+              <span class="task-meta-item">Proj: Nexus Core</span>
+            </div>
+          </div>
+          <div class="task-priority">High</div>
+        </div>
+        <div class="task-item priority-high" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Integrate real-time notification service</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Feb 12</span>
+              <span class="task-meta-item">Proj: Comms</span>
+            </div>
+          </div>
+          <div class="task-priority">High</div>
+        </div>
+      </div>
+
+      <div class="task-divider"><span>▸ Standard</span></div>
+
+      <div class="task-list">
+        <div class="task-item priority-normal" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Update API documentation for v3 endpoints</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Feb 13</span>
+              <span class="task-meta-item">Proj: Docs</span>
+            </div>
+          </div>
+          <div class="task-priority">Normal</div>
+        </div>
+        <div class="task-item priority-normal" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Design onboarding flow wireframes</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Feb 14</span>
+              <span class="task-meta-item">Proj: UX</span>
+            </div>
+          </div>
+          <div class="task-priority">Normal</div>
+        </div>
+        <div class="task-item priority-normal done" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Set up CI/CD pipeline for staging</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Completed</span>
+              <span class="task-meta-item">Proj: Infra</span>
+            </div>
+          </div>
+          <div class="task-priority">Normal</div>
+        </div>
+        <div class="task-item priority-low" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Refactor legacy CSS to design tokens</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Due: Feb 18</span>
+              <span class="task-meta-item">Proj: UX</span>
+            </div>
+          </div>
+          <div class="task-priority">Low</div>
+        </div>
+        <div class="task-item priority-low done" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Archive deprecated module repos</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Completed</span>
+              <span class="task-meta-item">Proj: Infra</span>
+            </div>
+          </div>
+          <div class="task-priority">Low</div>
+        </div>
+        <div class="task-item priority-low done" onclick="this.classList.toggle('done')">
+          <div class="task-check"></div>
+          <div class="task-info">
+            <div class="task-name">Write unit tests for auth helpers</div>
+            <div class="task-meta">
+              <span class="task-meta-item">Completed</span>
+              <span class="task-meta-item">Proj: Nexus Core</span>
+            </div>
+          </div>
+          <div class="task-priority">Low</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- Today's Schedule -->
+      <div class="schedule-panel">
+        <div class="section-header">
+          <div class="section-title">Today</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="timeline">
+          <div class="time-slot">
+            <div class="time-dot"></div>
+            <div class="time-content">
+              <div class="time-label">09:00</div>
+              <div class="time-event">Daily Standup</div>
+              <div class="time-event-sub">Nexus Core Team — 15 min</div>
+            </div>
+          </div>
+          <div class="time-slot">
+            <div class="time-dot"></div>
+            <div class="time-content">
+              <div class="time-label">10:30</div>
+              <div class="time-event">Architecture Review</div>
+              <div class="time-event-sub">Tech leads — 60 min</div>
+            </div>
+          </div>
+          <div class="time-slot active">
+            <div class="time-dot"></div>
+            <div class="time-content">
+              <div class="time-label">14:00 — NOW</div>
+              <div class="time-event">Deep Work Block</div>
+              <div class="time-event-sub">Auth microservice — 120 min</div>
+            </div>
+          </div>
+          <div class="time-slot">
+            <div class="time-dot"></div>
+            <div class="time-content">
+              <div class="time-label">16:30</div>
+              <div class="time-event">Sprint Planning</div>
+              <div class="time-event-sub">Full team — 45 min</div>
+            </div>
+          </div>
+          <div class="time-slot">
+            <div class="time-dot"></div>
+            <div class="time-content">
+              <div class="time-label">18:00</div>
+              <div class="time-event">Deploy Window</div>
+              <div class="time-event-sub">Production push — 30 min</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Ring -->
+      <div class="progress-panel">
+        <div class="section-header">
+          <div class="section-title">Cycle Progress</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="ring-container">
+          <svg class="ring-svg" viewBox="0 0 140 140">
+            <defs>
+              <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00f0ff" />
+                <stop offset="100%" stop-color="#ff2d9b" />
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="70" cy="70" r="65" />
+            <circle class="ring-fill" cx="70" cy="70" r="65" />
+          </svg>
+          <div class="ring-text">
+            <div class="ring-percent">70%</div>
+            <div class="ring-label">Complete</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);padding:0 10px;">
+          <span>28 done</span>
+          <span>12 remaining</span>
+        </div>
+      </div>
+
+      <!-- Project Tags -->
+      <div class="tags-panel">
+        <div class="section-header">
+          <div class="section-title">Projects</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="tags-list">
+          <div class="tag t-cyan">Nexus Core</div>
+          <div class="tag t-magenta">Infrastructure</div>
+          <div class="tag t-yellow">Analytics</div>
+          <div class="tag t-green">UX Design</div>
+          <div class="tag t-cyan">Docs</div>
+          <div class="tag t-magenta">Comms</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Live clock
+  function updateClock() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth()+1).padStart(2,'0');
+    const d = String(now.getDate()).padStart(2,'0');
+    const h = String(now.getHours()).padStart(2,'0');
+    const min = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('liveDate').textContent = `${y}.${m}.${d}`;
+    document.getElementById('liveTime').textContent = `${h}:${min}:${s}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Hex grid canvas background
+  const canvas = document.getElementById('hexCanvas');
+  const ctx = canvas.getContext('2d');
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    drawHex();
+  }
+  function drawHex() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const size = 30;
+    const w = size * 2;
+    const h = Math.sqrt(3) * size;
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.025)';
+    ctx.lineWidth = 0.5;
+    for (let row = -1; row < canvas.height / h + 1; row++) {
+      for (let col = -1; col < canvas.width / w + 1; col++) {
+        const x = col * w * 0.75;
+        const y = row * h + (col % 2 === 0 ? 0 : h / 2);
+        drawHexagon(x, y, size);
+      }
+    }
+  }
+  function drawHexagon(cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 6;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+</script>
+</body>
+</html>
